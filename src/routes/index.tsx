@@ -277,14 +277,17 @@ function TicketDetailDialog({
   }, [ticket]);
 
   const save = useMutation({
-    mutationFn: (vars: { id: string; resolved: boolean }) =>
-      updateTicket(vars.id, {
+    mutationFn: (vars: { id: string; resolved: boolean }) => {
+      const patch: Parameters<typeof updateTicket>[1] = {
         status,
         priority,
         resolution: resolution.trim() || null,
-        resolved_at:
-          status === "resolved" && !vars.resolved ? new Date().toISOString() : undefined,
-      }),
+      };
+      if (status === "resolved" && !vars.resolved) {
+        patch.resolved_at = new Date().toISOString();
+      }
+      return updateTicket(vars.id, patch);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
       setEditing(false);
