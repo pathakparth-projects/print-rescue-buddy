@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          owner_key: string | null
           priority: string
           resolution: string | null
           resolved_at: string | null
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          owner_key?: string | null
           priority?: string
           resolution?: string | null
           resolved_at?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          owner_key?: string | null
           priority?: string
           resolution?: string | null
           resolved_at?: string | null

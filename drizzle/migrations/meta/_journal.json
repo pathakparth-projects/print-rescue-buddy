@@ -8,6 +8,13 @@
       "when": 1790113863987,
       "tag": "0000_create_tickets",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790114328228,
+      "tag": "0001_lock_down_tickets_rls",
+      "breakpoints": true
     }
   ]
 }
