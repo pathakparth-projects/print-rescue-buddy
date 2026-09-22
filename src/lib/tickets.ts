@@ -1,4 +1,9 @@
-import { supabase } from "@/integrations/supabase/client";
+import {
+  listTickets,
+  createTicketFn,
+  updateTicketFn,
+  deleteTicketFn,
+} from "@/lib/tickets.functions";
 
 export type TicketStatus = "open" | "in_progress" | "resolved";
 export type TicketPriority = "low" | "medium" | "high";
@@ -33,28 +38,36 @@ export interface NewTicketInput {
   priority: TicketPriority;
 }
 
+const OWNER_KEY_STORAGE = "fixlog.owner-key";
+
+/** Stable per-device secret that scopes this browser's tickets. */
+function getOwnerKey(): string {
+  if (typeof window === "undefined") return "";
+  let key = window.localStorage.getItem(OWNER_KEY_STORAGE);
+  if (!key) {
+    key = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+    window.localStorage.setItem(OWNER_KEY_STORAGE, key);
+  }
+  return key;
+}
+
 export async function fetchTickets(): Promise<Ticket[]> {
-  const { data, error } = await supabase
-    .from("tickets")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Ticket[];
+  const ownerKey = getOwnerKey();
+  if (!ownerKey) return [];
+  const rows = await listTickets({ data: { ownerKey } });
+  return rows as Ticket[];
 }
 
 export async function createTicket(input: NewTicketInput): Promise<Ticket> {
-  const { data, error } = await supabase
-    .from("tickets")
-    .insert({
+  const row = await createTicketFn({
+    data: {
+      ownerKey: getOwnerKey(),
       title: input.title,
       description: input.description,
       priority: input.priority,
-      status: "open" as TicketStatus,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return data as Ticket;
+    },
+  });
+  return row as Ticket;
 }
 
 export interface TicketPatch {
@@ -67,11 +80,9 @@ export interface TicketPatch {
 }
 
 export async function updateTicket(id: string, patch: TicketPatch): Promise<void> {
-  const { error } = await supabase.from("tickets").update(patch).eq("id", id);
-  if (error) throw error;
+  await updateTicketFn({ data: { ownerKey: getOwnerKey(), id, patch } });
 }
 
 export async function deleteTicket(id: string): Promise<void> {
-  const { error } = await supabase.from("tickets").delete().eq("id", id);
-  if (error) throw error;
+  await deleteTicketFn({ data: { ownerKey: getOwnerKey(), id } });
 }
