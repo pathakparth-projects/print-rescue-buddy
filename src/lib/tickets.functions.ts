@@ -12,6 +12,7 @@ const ownerKeySchema = z
 
 const statusSchema = z.enum(["open", "in_progress", "resolved"]);
 const prioritySchema = z.enum(["low", "medium", "high"]);
+const categorySchema = z.enum(["Hardware", "Software", "Access"]);
 
 /** Optional client-held copy of the key, used when the cookie is unavailable (e.g. embedded previews). */
 const fallbackSchema = z.object({ fallbackKey: ownerKeySchema.optional() }).strict();
@@ -20,6 +21,7 @@ const createSchema = fallbackSchema.extend({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(5000).default(""),
   priority: prioritySchema,
+  category: categorySchema,
 });
 
 const updateSchema = fallbackSchema.extend({
@@ -30,6 +32,7 @@ const updateSchema = fallbackSchema.extend({
       description: z.string().max(5000).optional(),
       status: statusSchema.optional(),
       priority: prioritySchema.optional(),
+      category: categorySchema.optional(),
       resolution: z.string().max(5000).nullable().optional(),
       resolved_at: z.string().nullable().optional(),
     })
@@ -39,7 +42,7 @@ const updateSchema = fallbackSchema.extend({
 const deleteSchema = fallbackSchema.extend({ id: z.string().uuid() });
 
 const COLUMNS =
-  "id,title,description,status,priority,resolution,resolved_at,created_at,updated_at";
+  "id,title,description,status,priority,category,resolution,resolved_at,created_at,updated_at";
 
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -105,6 +108,7 @@ export const createTicketFn = createServerFn({ method: "POST" })
         title: data.title,
         description: data.description,
         priority: data.priority,
+        category: data.category,
         status: "open",
         owner_key: ownerKey,
       })
