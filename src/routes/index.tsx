@@ -2,15 +2,29 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   fetchTickets,
   createTicket,
   updateTicket,
   deleteTicket,
   STATUS_LABELS,
   PRIORITY_LABELS,
+  CATEGORIES,
   type Ticket,
   type TicketStatus,
   type TicketPriority,
+  type TicketCategory,
 } from "@/lib/tickets";
 
 export const Route = createFileRoute("/")({
@@ -62,6 +76,12 @@ const STATUS_DOT: Record<TicketStatus, string> = {
   resolved: "bg-status-resolved",
 };
 
+const CATEGORY_COLORS: Record<TicketCategory, string> = {
+  Hardware: "var(--category-hardware)",
+  Software: "var(--category-software)",
+  Access: "var(--category-access)",
+};
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -93,6 +113,130 @@ function PriorityBadge({ priority }: { priority: TicketPriority }) {
       <span className={`size-1.5 rounded-full ${PRIORITY_DOTS[priority]}`} />
       {PRIORITY_LABELS[priority]}
     </span>
+  );
+}
+
+function CategoryBadge({ category }: { category: TicketCategory }) {
+  return (
+    <span className="stamp inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-1 text-muted-foreground">
+      {category}
+    </span>
+  );
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ value?: number; name?: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-md border border-border bg-popover px-3 py-2 shadow-md">
+      {label && <p className="stamp text-muted-foreground">{label}</p>}
+      <p className="mt-0.5 text-sm font-semibold">
+        {payload[0]?.value ?? 0} {payload[0]?.name ?? "tickets"}
+      </p>
+    </div>
+  );
+}
+
+function TicketAnalytics({ tickets }: { tickets: Ticket[] }) {
+  const dailyData = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const ticket of tickets) {
+      const day = ticket.created_at.slice(0, 10);
+      totals.set(day, (totals.get(day) ?? 0) + 1);
+    }
+    return [...totals.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-14)
+      .map(([day, count]) => ({
+        day: new Date(`${day}T00:00:00`).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        count,
+      }));
+  }, [tickets]);
+
+  const categoryData = useMemo(
+    () =>
+      CATEGORIES.map((category) => ({
+        category,
+        count: tickets.filter(
+          (ticket) => ticket.status === "open" && ticket.category === category,
+        ).length,
+      })),
+    [tickets],
+  );
+  const openTotal = categoryData.reduce((sum, item) => sum + item.count, 0);
+
+  return (
+    <section className="grid gap-4 pb-6 md:grid-cols-[1.35fr_1fr]" aria-label="Ticket analytics">
+      <div className="min-w-0 border-y border-border bg-card py-5 md:border md:p-5">
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <div>
+            <h2 className="font-display text-base font-semibold">Tickets created</h2>
+            <p className="stamp mt-1 text-muted-foreground">Daily · last 14 active days</p>
+          </div>
+          <span className="font-display text-2xl font-bold">{tickets.length}</span>
+        </div>
+        {dailyData.length ? (
+          <div className="h-52 w-full" aria-label="Bar chart of tickets created per day">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={dailyData} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
+                <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="day" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={20} />
+                <YAxis allowDecimals={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} tickLine={false} axisLine={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--muted)" }} />
+                <Bar dataKey="count" name="tickets" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={30} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="flex h-52 items-center justify-center text-sm text-muted-foreground">No ticket history yet.</div>
+        )}
+      </div>
+
+      <div className="min-w-0 border-y border-border bg-card py-5 md:border md:p-5">
+        <div className="mb-2">
+          <h2 className="font-display text-base font-semibold">Open by category</h2>
+          <p className="stamp mt-1 text-muted-foreground">{openTotal} open total</p>
+        </div>
+        {openTotal ? (
+          <div className="relative h-40 w-full" aria-label="Pie chart of open tickets by category">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={categoryData} dataKey="count" nameKey="category" innerRadius={38} outerRadius={64} paddingAngle={2} stroke="var(--card)">
+                  {categoryData.map((item) => (
+                    <Cell key={item.category} fill={CATEGORY_COLORS[item.category]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="font-display text-2xl font-bold">{openTotal}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">No open tickets.</div>
+        )}
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {categoryData.map((item) => (
+            <div key={item.category} className="min-w-0 text-center">
+              <span className="mx-auto mb-1 block size-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[item.category] }} />
+              <p className="stamp truncate text-muted-foreground">{item.category}</p>
+              <p className="text-sm font-semibold">{item.count}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -162,6 +306,7 @@ function NewTicketDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TicketPriority>("medium");
+  const [category, setCategory] = useState<TicketCategory>("Hardware");
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
@@ -171,6 +316,7 @@ function NewTicketDialog({
       setTitle("");
       setDescription("");
       setPriority("medium");
+      setCategory("Hardware");
       setError(null);
       onClose();
     },
@@ -186,6 +332,7 @@ function NewTicketDialog({
       title: title.trim(),
       description: description.trim(),
       priority,
+      category,
     });
   };
 
@@ -212,6 +359,24 @@ function NewTicketDialog({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Symptoms, error messages, what you were doing when it broke…"
           />
+        </div>
+        <div>
+          <label className="stamp mb-1.5 block text-muted-foreground">Category</label>
+          <div className="flex gap-2">
+            {CATEGORIES.map((item) => (
+              <button
+                key={item}
+                onClick={() => setCategory(item)}
+                className={`stamp rounded-md border px-3 py-1.5 transition-colors ${
+                  category === item
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <label className="stamp mb-1.5 block text-muted-foreground">Priority</label>
@@ -262,6 +427,7 @@ function TicketDetailDialog({
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<TicketStatus>("open");
   const [priority, setPriority] = useState<TicketPriority>("medium");
+  const [category, setCategory] = useState<TicketCategory>("Hardware");
   const [resolution, setResolution] = useState("");
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -270,6 +436,7 @@ function TicketDetailDialog({
     if (ticket) {
       setStatus(ticket.status);
       setPriority(ticket.priority);
+      setCategory(ticket.category);
       setResolution(ticket.resolution ?? "");
       setEditing(false);
       setError(null);
@@ -281,6 +448,7 @@ function TicketDetailDialog({
       const patch: Parameters<typeof updateTicket>[1] = {
         status,
         priority,
+        category,
         resolution: resolution.trim() || null,
       };
       if (status === "resolved" && !vars.resolved) {
@@ -332,7 +500,7 @@ function TicketDetailDialog({
 
         {editing ? (
           <>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="stamp mb-1.5 block text-muted-foreground">Status</label>
                 <div className="flex flex-wrap gap-1.5">
@@ -347,6 +515,24 @@ function TicketDetailDialog({
                       }`}
                     >
                       {STATUS_LABELS[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="stamp mb-1.5 block text-muted-foreground">Category</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {CATEGORIES.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setCategory(item)}
+                      className={`stamp rounded-md border px-2.5 py-1.5 transition-colors ${
+                        category === item
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {item}
                     </button>
                   ))}
                 </div>
@@ -389,6 +575,7 @@ function TicketDetailDialog({
                   setError(null);
                   setStatus(ticket.status);
                   setPriority(ticket.priority);
+                  setCategory(ticket.category);
                   setResolution(ticket.resolution ?? "");
                 }}
                 className="stamp rounded-md border border-border px-4 py-2 text-muted-foreground transition-colors hover:bg-muted"
@@ -512,6 +699,8 @@ function App() {
           ))}
         </div>
 
+        {!isLoading && !error && <TicketAnalytics tickets={tickets ?? []} />}
+
         <div className="flex flex-wrap items-center gap-2 pb-5">
           {(["all", ...STATUSES] as const).map((f) => (
             <button
@@ -567,6 +756,7 @@ function App() {
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={t.status} />
                   <PriorityBadge priority={t.priority} />
+                  <CategoryBadge category={t.category} />
                   <span className="stamp ml-auto text-muted-foreground">
                     {formatDate(t.created_at)}
                   </span>
