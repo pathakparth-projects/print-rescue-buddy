@@ -7,6 +7,7 @@ import {
 
 export type TicketStatus = "open" | "in_progress" | "resolved";
 export type TicketPriority = "low" | "medium" | "high";
+export type TicketCategory = "Hardware" | "Software" | "Access";
 
 export interface Ticket {
   id: string;
@@ -14,6 +15,7 @@ export interface Ticket {
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
+  category: TicketCategory;
   resolution: string | null;
   resolved_at: string | null;
   created_at: string;
@@ -32,10 +34,13 @@ export const PRIORITY_LABELS: Record<TicketPriority, string> = {
   high: "High",
 };
 
+export const CATEGORIES: TicketCategory[] = ["Hardware", "Software", "Access"];
+
 export interface NewTicketInput {
   title: string;
   description: string;
   priority: TicketPriority;
+  category: TicketCategory;
 }
 
 const OWNER_KEY_STORAGE = "fixlog.owner-key";
@@ -76,6 +81,7 @@ export async function createTicket(input: NewTicketInput): Promise<Ticket> {
       title: input.title,
       description: input.description,
       priority: input.priority,
+      category: input.category,
     }) as never,
   });
   rememberKey(result.ownerKey);
@@ -87,6 +93,7 @@ export interface TicketPatch {
   description?: string;
   status?: TicketStatus;
   priority?: TicketPriority;
+  category?: TicketCategory;
   resolution?: string | null;
   resolved_at?: string | null;
 }
