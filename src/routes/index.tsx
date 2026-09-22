@@ -82,6 +82,12 @@ const CATEGORY_COLORS: Record<TicketCategory, string> = {
   Access: "var(--category-access)",
 };
 
+const CATEGORY_DOTS: Record<TicketCategory, string> = {
+  Hardware: "bg-category-hardware",
+  Software: "bg-category-software",
+  Access: "bg-category-access",
+};
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -229,7 +235,7 @@ function TicketAnalytics({ tickets }: { tickets: Ticket[] }) {
         <div className="mt-2 grid grid-cols-3 gap-2">
           {categoryData.map((item) => (
             <div key={item.category} className="min-w-0 text-center">
-              <span className="mx-auto mb-1 block size-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[item.category] }} />
+              <span className={`mx-auto mb-1 block size-2 rounded-full ${CATEGORY_DOTS[item.category]}`} />
               <p className="stamp truncate text-muted-foreground">{item.category}</p>
               <p className="text-sm font-semibold">{item.count}</p>
             </div>
@@ -484,6 +490,7 @@ function TicketDetailDialog({
             #{shortId(ticket.id)}
           </span>
           <PriorityBadge priority={ticket.priority} />
+          <CategoryBadge category={ticket.category} />
           <span className="stamp text-muted-foreground">
             Filed {formatDate(ticket.created_at)}
           </span>
@@ -645,7 +652,7 @@ function App() {
     const q = search.trim().toLowerCase();
     return tickets.filter((t) => {
       if (filter !== "all" && t.status !== filter) return false;
-      if (q && !`${t.title} ${t.description} ${t.resolution ?? ""}`.toLowerCase().includes(q))
+      if (q && !`${t.title} ${t.description} ${t.category} ${t.resolution ?? ""}`.toLowerCase().includes(q))
         return false;
       return true;
     });
