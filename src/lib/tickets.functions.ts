@@ -82,7 +82,7 @@ export const updateTicketFn = createServerFn({ method: "POST" })
     const db = await admin();
     const { error } = await db
       .from("tickets")
-      .update(data.patch)
+      .update(data.patch as Record<string, never>)
       .eq("id", data.id)
       .eq("owner_key", data.ownerKey);
     if (error) throw new Error("Could not save the ticket");
