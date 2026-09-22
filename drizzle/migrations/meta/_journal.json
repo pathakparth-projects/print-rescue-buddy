@@ -15,6 +15,13 @@
       "when": 1790114328228,
       "tag": "0001_lock_down_tickets_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790119638447,
+      "tag": "0002_add_ticket_category",
+      "breakpoints": true
     }
   ]
 }
