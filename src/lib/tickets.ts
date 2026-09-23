@@ -3,6 +3,7 @@ import {
   createTicketFn,
   updateTicketFn,
   deleteTicketFn,
+  getIsAdmin,
 } from "@/lib/tickets.functions";
 
 export type TicketStatus = "open" | "in_progress" | "resolved";
@@ -20,6 +21,7 @@ export interface Ticket {
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
+  created_by: string | null;
 }
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -43,51 +45,6 @@ export interface NewTicketInput {
   category: TicketCategory;
 }
 
-const OWNER_KEY_STORAGE = "fixlog.owner-key";
-
-/** Backup copy of the browser identity, for contexts where cookies are blocked. */
-function readFallbackKey(): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  try {
-    return window.localStorage.getItem(OWNER_KEY_STORAGE) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function rememberKey(key: string) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(OWNER_KEY_STORAGE, key);
-  } catch {
-    // storage blocked — the server cookie carries identity instead
-  }
-}
-
-function payload(extra: Record<string, unknown> = {}) {
-  const fallbackKey = readFallbackKey();
-  return fallbackKey ? { fallbackKey, ...extra } : extra;
-}
-
-export async function fetchTickets(): Promise<Ticket[]> {
-  const result = await listTickets({ data: payload() as never });
-  rememberKey(result.ownerKey);
-  return result.tickets as Ticket[];
-}
-
-export async function createTicket(input: NewTicketInput): Promise<Ticket> {
-  const result = await createTicketFn({
-    data: payload({
-      title: input.title,
-      description: input.description,
-      priority: input.priority,
-      category: input.category,
-    }) as never,
-  });
-  rememberKey(result.ownerKey);
-  return result.ticket as Ticket;
-}
-
 export interface TicketPatch {
   title?: string;
   description?: string;
@@ -98,12 +55,33 @@ export interface TicketPatch {
   resolved_at?: string | null;
 }
 
+export async function fetchIsAdmin(): Promise<boolean> {
+  const result = await getIsAdmin({ data: undefined as never });
+  return result.isAdmin;
+}
+
+/** `mine: false` returns the global log — only admins are allowed to see it. */
+export async function fetchTickets(mine = true): Promise<Ticket[]> {
+  const result = await listTickets({ data: { mine } as never });
+  return result.tickets as unknown as Ticket[];
+}
+
+export async function createTicket(input: NewTicketInput): Promise<Ticket> {
+  const result = await createTicketFn({
+    data: {
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      category: input.category,
+    } as never,
+  });
+  return result.ticket as unknown as Ticket;
+}
+
 export async function updateTicket(id: string, patch: TicketPatch): Promise<void> {
-  const result = await updateTicketFn({ data: payload({ id, patch }) as never });
-  rememberKey(result.ownerKey);
+  await updateTicketFn({ data: { id, patch } as never });
 }
 
 export async function deleteTicket(id: string): Promise<void> {
-  const result = await deleteTicketFn({ data: payload({ id }) as never });
-  rememberKey(result.ownerKey);
+  await deleteTicketFn({ data: { id } as never });
 }
