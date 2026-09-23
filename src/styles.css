@@ -48,6 +48,10 @@
   --color-category-hardware: var(--category-hardware);
   --color-category-software: var(--category-software);
   --color-category-access: var(--category-access);
+  --color-auth-surface: var(--auth-surface);
+  --color-auth-surface-foreground: var(--auth-surface-foreground);
+  --color-auth-card: var(--auth-card);
+  --color-auth-border: var(--auth-border);
 }
 
 :root {
@@ -80,6 +84,11 @@
   --category-hardware: oklch(0.52 0.14 42);
   --category-software: oklch(0.53 0.11 225);
   --category-access: oklch(0.56 0.12 155);
+  /* Sign-in screen: deep brown surface with off-white type */
+  --auth-surface: oklch(0.225 0.028 50);
+  --auth-surface-foreground: oklch(0.955 0.012 85);
+  --auth-card: oklch(0.275 0.03 50);
+  --auth-border: oklch(0.375 0.03 50);
 }
 
 @layer base {
